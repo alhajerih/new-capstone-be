@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package notification;
+
+option java_package = "com.example.notificationservice.grpc";
+option java_multiple_files = true;
+
+service NotificationService {
+  rpc RegisterToken (RegisterTokenRequest) returns (RegisterTokenResponse);
+  rpc SendPaymentNotification (PaymentNotificationRequest) returns (NotificationResponse);
+  rpc SendFailureNotification (FailureNotificationRequest) returns (NotificationResponse);
+}
+
+message RegisterTokenRequest {
+  string token = 1;
+  int64 userId = 2;
+}
+
+message RegisterTokenResponse {
+  string message = 1;
+}
+
+message PaymentNotificationRequest {
+  string wallet = 1;
+  double balance = 2;
+  double amount = 3;
+  string transactionName = 4;
+}
+
+message FailureNotificationRequest {
+  double amount = 1;
+  string transactionName = 2;
+  string reason = 3;
+}
+
+message NotificationResponse {
+  string message = 1;
+}

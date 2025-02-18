@@ -1,0 +1,131 @@
+version: '3.8'
+
+networks:
+  my_network:
+    driver: bridge
+
+services:
+  postgres:
+    image: postgres
+    container_name: postgres_container
+    restart: always
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - my_network
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin4_container
+    restart: always
+    ports:
+      - "8888:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - my_network
+
+  redis:
+    image: redis:latest
+    container_name: redis_container
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - my_network
+
+  eureka-server:
+    image: alhajerih/capstone-backend:eureka-server
+    build:
+      context: ./eureka-server
+    container_name: eureka_server
+    ports:
+      - "8761:8761"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - my_network
+
+  api-gateway:
+    image: alhajerih/capstone-backend:api-gateway
+    build:
+      context: ./api-gateway
+    container_name: api_gateway
+    ports:
+      - "8765:8765"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      - eureka-server
+      - redis
+    networks:
+      - my_network
+
+  shares-app:
+    image: alhajerih/capstone-backend:shares-app
+    build:
+      context: ./Shares
+    container_name: shares_container
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./Shares/src/main/java/com/example/Shares/auth/utils/UPLOAD_DIR:/app/UPLOAD_DIR
+    depends_on:
+      - postgres
+      - eureka-server
+      - redis
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/postgres
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+      - file.upload-dir=/app/UPLOAD_DIR
+      - spring.web.resources.static-locations=file:/app/UPLOAD_DIR/
+    networks:
+      - my_network
+
+  notificationservice-app:
+    image: alhajerih/capstone-backend:notificationservice-app
+    build:
+      context: ./notificationservice
+    container_name: notificationservice_container
+    ports:
+      - "8082:8082"
+      - "9090:9090"
+    depends_on:
+      - shares-app
+      - postgres
+      - eureka-server
+      - redis
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/postgres
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    networks:
+      - my_network
+
+volumes:
+  uploads_data:
+  postgres_data:
+  pgadmin_data:
+  redis_data:
